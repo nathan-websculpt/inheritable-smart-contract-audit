@@ -1,5 +1,7 @@
 //SPDX-License-Identifier: MIT
 
+// @audit-notes: no fallback, receive
+
 pragma solidity 0.8.26;
 
 import {Trustee} from "./modules/Trustee.sol";
@@ -8,6 +10,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract InheritanceManager is Trustee {
+    // q why is SafeERC20 not being used?
     using SafeERC20 for IERC20;
 
     //////////////////////////////////////////////////////////////////////////////////
@@ -27,7 +30,7 @@ contract InheritanceManager is Trustee {
     address[] beneficiaries;
     uint256 deadline;
     bool isInherited = false;
-    mapping(address protocol => bytes) interactions;
+    mapping(address protocol => bytes) interactions; // ln: 131
     uint256 public constant TIMELOCK = 90 days;
 
     constructor() {
@@ -52,6 +55,7 @@ contract InheritanceManager is Trustee {
      */
     modifier onlyBeneficiaryWithIsInherited() {
         uint256 i = 0;
+        // q isn't this + 1 wrong?
         while (i < beneficiaries.length + 1) {
             if (msg.sender == beneficiaries[i] && isInherited) {
                 break;
@@ -65,6 +69,7 @@ contract InheritanceManager is Trustee {
      * @dev gas efficient cross-function reentrancy lock using transient storage
      * @notice refer here: https://soliditylang.org/blog/2024/01/26/transient-storage/
      */
+    //todo: verify that this modifier fits with documented link above
     modifier nonReentrant() {
         assembly {
             if tload(1) { revert(0, 0) }
@@ -89,6 +94,7 @@ contract InheritanceManager is Trustee {
      */
     function sendERC20(address _tokenAddress, uint256 _amount, address _to) external nonReentrant onlyOwner {
         if (IERC20(_tokenAddress).balanceOf(address(this)) < _amount) {
+            // q shouldn't there be a _setDeadline() here?
             revert InsufficientBalance();
         }
         IERC20(_tokenAddress).safeTransfer(_to, _amount);
@@ -127,6 +133,8 @@ contract InheritanceManager is Trustee {
         if (_storeTarget) {
             interactions[_target] = data;
         }
+
+        // q shouldn't there be a _setDeadline() here?
     }
 
     //////////////////////////////////////////////////////////////////////////////////
@@ -144,6 +152,8 @@ contract InheritanceManager is Trustee {
         uint256 nftID = nft.createEstate(_description);
         nftValue[nftID] = _value;
         assetToPay = _asset;
+        
+        // q shouldn't there be a _setDeadline() here?
     }
 
     /**
@@ -163,6 +173,8 @@ contract InheritanceManager is Trustee {
     function removeBeneficiary(address _beneficiary) external onlyOwner {
         uint256 indexToRemove = _getBeneficiaryIndex(_beneficiary);
         delete beneficiaries[indexToRemove];
+        
+        // q shouldn't there be a _setDeadline() here?
     }
 
     //////////////////////////////////////////////////////////////////////////////////
@@ -244,6 +256,7 @@ contract InheritanceManager is Trustee {
             for (uint256 i = 0; i < divisor; i++) {
                 address payable beneficiary = payable(beneficiaries[i]);
                 (bool success,) = beneficiary.call{value: amountPerBeneficiary}("");
+                // @audit avoid require in a loop - single bad item can cause whole transaction to fail
                 require(success, "something went wrong");
             }
         } else {
@@ -283,3 +296,4 @@ contract InheritanceManager is Trustee {
         trustee = _trustee;
     }
 }
+
