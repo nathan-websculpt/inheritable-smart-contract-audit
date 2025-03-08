@@ -70,6 +70,7 @@ contract InheritanceManager is Trustee {
      * @notice refer here: https://soliditylang.org/blog/2024/01/26/transient-storage/
      */
     //todo: verify that this modifier fits with documented link above
+    // q why isn't this tload(0)?
     modifier nonReentrant() {
         assembly {
             if tload(1) { revert(0, 0) }
