@@ -109,6 +109,8 @@ contract InheritanceManager is Trustee {
      * @param _to address to send ETH to
      */
     function sendETH(uint256 _amount, address _to) external nonReentrant onlyOwner {
+        // q why no balance check?
+
         (bool success,) = _to.call{value: _amount}("");
         require(success, "Transfer Failed");
         _setDeadline();
@@ -236,6 +238,7 @@ contract InheritanceManager is Trustee {
             _setDeadline();
         } else if (beneficiaries.length > 1) {
             isInherited = true;
+            // @audit: set owner
         } else {
             revert InvalidBeneficiaries();
         }
@@ -282,6 +285,7 @@ contract InheritanceManager is Trustee {
         IERC20(assetToPay).safeTransferFrom(msg.sender, address(this), finalAmount);
         for (uint256 i = 0; i < beneficiaries.length; i++) {
             if (msg.sender == beneficiaries[i]) {
+                // @audit: this return stops loop prematurely, preventing remaining transfer of funds from completing
                 return;
             } else {
                 IERC20(assetToPay).safeTransfer(beneficiaries[i], finalAmount / divisor);
