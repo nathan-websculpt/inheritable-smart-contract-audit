@@ -41,7 +41,6 @@ contract InheritanceManagerTest is Test {
 
     address owner = makeAddr("owner");
     address user1 = makeAddr("user1");
-    address user2 = makeAddr("user2");
 
     function setUp() public {
         vm.prank(owner);
@@ -155,13 +154,14 @@ contract InheritanceManagerTest is Test {
 
     // https://codehawks.cyfrin.io/c/2025-03-inheritable-smart-contract-wallet/s/86
     function test_ownerPrivilegesAfterInheritance() public {
+        address alice = address(0x09);
         vm.startPrank(owner);
         im.addBeneficiery(user1);
-        im.addBeneficiery(user2);
+        im.addBeneficiery(alice);
         vm.warp(1 + 90 days);
         vm.deal(address(im), 5e18);
-        im.inherit(); // doesn't matter who calls this. 
-        im.removeBeneficiary(user2); //should not be possible after inheritance. 
+        im.inherit(); // doesn't matter who calls this.
+        im.removeBeneficiary(alice); //should not be possible after inheritance.
         im.addBeneficiery(owner); // owner access
         im.sendETH(5e18, owner);
         vm.stopPrank();

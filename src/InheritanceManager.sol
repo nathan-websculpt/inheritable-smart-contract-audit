@@ -155,7 +155,7 @@ contract InheritanceManager is Trustee {
         uint256 nftID = nft.createEstate(_description);
         nftValue[nftID] = _value;
         assetToPay = _asset;
-        
+
         // q shouldn't there be a _setDeadline() here?
     }
 
@@ -176,7 +176,7 @@ contract InheritanceManager is Trustee {
     function removeBeneficiary(address _beneficiary) external onlyOwner {
         uint256 indexToRemove = _getBeneficiaryIndex(_beneficiary);
         delete beneficiaries[indexToRemove];
-        
+
         // q shouldn't there be a _setDeadline() here?
     }
 
@@ -301,4 +301,3 @@ contract InheritanceManager is Trustee {
         trustee = _trustee;
     }
 }
-
